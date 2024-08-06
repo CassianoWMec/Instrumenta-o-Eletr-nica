@@ -1,0 +1,98 @@
+#include <Servo.h>
+#include <EEPROM.h> // Biblioteca para acessar a EEPROM
+
+// Definindo os pinos do sensor ultrassônico
+const int trigPin = 9;
+const int echoPin = 10;
+
+// Definindo os pinos do servomotor e da ventoinha
+const int servoPin = 11;
+const int fanPin = 12;
+
+// Definindo o pino do fotoresistor
+const int ldrPin = A0;
+const int luminosidadeMinima = 613.8; // Novo valor mínimo de luminosidade para o sistema funcionar
+
+// Criando o objeto Servo
+Servo myServo;
+
+// Variável para controlar o tempo desde a última atuação do servomotor
+unsigned long lastServoActuationTime = 0;
+const unsigned long servoCooldown = 10000; // 10 segundos de espera
+
+// Contador de vezes alimentado
+int vezesAlimentado = 0;
+
+// Endereço inicial na EEPROM para armazenar o contador
+const int EEPROM_address = 0;
+
+// Função para calcular a distância
+long readUltrasonicDistance(int trigPin, int echoPin) {
+  pinMode(trigPin, OUTPUT);
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+  
+  pinMode(echoPin, INPUT);
+  return pulseIn(echoPin, HIGH) / 58.2; // Converter para centímetros
+}
+
+void setup() {
+  // Iniciando comunicação serial
+  Serial.begin(9600);
+  
+  // Zerando a EEPROM para reiniciar a contagem
+  EEPROM.put(EEPROM_address, 0);  
+  // Inicializando o pino do sensor ultrassônico
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+  
+  // Inicializando o servomotor
+  myServo.attach(servoPin);
+  myServo.write(0); // Posição inicial do servo
+  
+  // Inicializando o pino da ventoinha
+  pinMode(fanPin, OUTPUT);
+  digitalWrite(fanPin, LOW); // Ventoinha inicialmente desligada
+}
+
+void loop() {
+  int luminosidade = analogRead(ldrPin); // Ler o valor do fotoresistor
+  
+  // Verificar se a luminosidade é alta o suficiente para o sistema funcionar
+  if (luminosidade >= luminosidadeMinima) {
+    long distance = readUltrasonicDistance(trigPin, echoPin);
+    
+    unsigned long currentTime = millis();
+
+    // Verificando se a distância é menor que 10 cm e se passaram mais de 10 segundos desde a última atuação
+    if (distance < 10 && (currentTime - lastServoActuationTime >= servoCooldown)) {
+      myServo.write(90); // Mover o servo para a posição 90 graus
+      delay(3000); // Esperar 3 segundos
+      myServo.write(0); // Retornar o servo para a posição inicial
+      lastServoActuationTime = currentTime; // Atualizar o tempo da última atuação
+      vezesAlimentado++; // Incrementar o contador de vezes alimentado
+      
+      // Armazenar o novo valor do contador na EEPROM
+      EEPROM.put(EEPROM_address, vezesAlimentado);
+    }
+
+    // Verificando se a distância é menor que 20 cm
+    if (distance < 20) {
+      digitalWrite(fanPin, HIGH); // Ligar a ventoinha
+    } else {
+      digitalWrite(fanPin, LOW); // Desligar a ventoinha
+    }
+  } else {
+    // Desligar o servo e a ventoinha se a luminosidade estiver baixa
+    myServo.write(0);
+    digitalWrite(fanPin, LOW);
+  }
+
+  // Enviando a contagem de vezes alimentado para o segundo Arduino
+  Serial.println(vezesAlimentado);
+
+  delay(500); // Pequeno atraso para evitar leituras muito rápidas
+}
