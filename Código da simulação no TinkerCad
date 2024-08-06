@@ -1,55 +1,97 @@
 #include <LiquidCrystal.h>
+#include <DHT.h>
 
-// Inicializa o LCD no modo 4 bits com os pinos RS, E, D4, D5, D6, D7
-LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+// Configuração do LCD
+const int RS = 12;   // Pino RS do LCD
+const int E = 11;    // Pino E do LCD
+const int D4 = 10;   // Pino D4 do LCD
+const int D5 = 9;    // Pino D5 do LCD
+const int D6 = 8;    // Pino D6 do LCD
+const int D7 = 4;    // Pino D7 do LCD
 
-// Definindo os pinos
-const int ldrPin = A0;
-const int tempPin = A1;
-const int umidadePin = A2;
+// Criação do objeto LCD
+LiquidCrystal lcd(RS, E, D4, D5, D6, D7);
+
+// Definição dos pinos
+const int LDRPin = A0;           // Pino do sensor de luminosidade
+const int DHTPin = 6;            // Pino de dados do sensor DHT11
+const int outputPin = 7;         // Pino para acionar a saída digital (LED)
+
+// Configuração do DHT11
+#define DHTTYPE DHT11
+DHT dht(DHTPin, DHTTYPE);
+
+// Limites para as condições
+const int LIGHT_THRESHOLD = 120;  // Limite de luminosidade (ajuste conforme necessário)
+const float TEMP_THRESHOLD = 10; // Limite de temperatura em °C
+const float HUMIDITY_LOW_THRESHOLD = 50; // Limite inferior de umidade para acionar
+const float HUMIDITY_HIGH_THRESHOLD = 90; // Limite superior de umidade para desligar
 
 void setup() {
-  lcd.begin(16, 2); // Inicializa o display LCD com 16 colunas e 2 linhas
-  Serial.begin(9600);
+  Serial.begin(9600);            // Iniciar comunicação serial
+  dht.begin();                   // Inicializar o sensor DHT11
+  lcd.begin(16, 2);              // Inicializar LCD com 16 colunas e 2 linhas
+  lcd.clear();                   // Limpar o LCD
+  lcd.setCursor(0, 0);           // Definir o cursor para a primeira linha
+  lcd.print("Iniciando...");     // Mensagem de inicialização
+  delay(2000);                   // Esperar 2 segundos
+
+  pinMode(outputPin, OUTPUT);    // Configurar o pino de saída como saída
+  digitalWrite(outputPin, LOW);  // Inicialmente desligar a saída
 }
 
 void loop() {
-  // Leitura do Fotoresistor (LDR)
-  int valorLDR = analogRead(ldrPin);
-  float luminosidade = map(valorLDR, 0, 1023, 0, 100); // Converte para percentual
+  // Ler dados do sensor LDR
+  int ldrValue = analogRead(LDRPin);
 
-  // Leitura do Sensor de Temperatura (LM35)
-  int valorTemp = analogRead(tempPin);
-  float temperatura = (valorTemp * 5.0 * 100.0) / 1023.0; // Converte para Celsius
+  // Ler dados do sensor DHT11
+  float humidity = dht.readHumidity(); // Ler umidade
+  float temperature = dht.readTemperature(); // Ler temperatura
 
-  // Leitura do Sensor de Umidade do Solo
-  int valorUmidade = analogRead(umidadePin);
-  float umidade = map(valorUmidade, 0, 1023, 0, 100); // Converte para percentual
+  // Verificar se houve erro na leitura do DHT11
+  if (isnan(humidity) || isnan(temperature)) {
+    Serial.println("Falha ao ler do sensor DHT11!");
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Erro no sensor!");
+    delay(2000); // Mostrar mensagem de erro por 2 segundos
+    return;
+  }
 
-  // Exibindo no Serial Monitor
-  Serial.print("Luminosidade: ");
-  Serial.print(luminosidade);
-  Serial.println(" %");
-
-  Serial.print("Temperatura: ");
-  Serial.print(temperatura);
-  Serial.println(" C");
-
-  Serial.print("Umidade do Solo: ");
-  Serial.print(umidade);
-  Serial.println(" %");
-
-  // Exibindo no LCD
+  // Mostrar dados no LCD
   lcd.clear();
   lcd.setCursor(0, 0);
-  lcd.print("Temp: ");
-  lcd.print(temperatura);
-  lcd.print(" C");
+  lcd.print("Temp:");
+  lcd.print(temperature, 1); // Mostrar temperatura com 1 casa decimal
+  lcd.print("C");
 
   lcd.setCursor(0, 1);
-  lcd.print("Umid: ");
-  lcd.print(umidade);
-  lcd.print(" %");
+  lcd.print("Umid:");
+  lcd.print(humidity, 1); // Mostrar umidade com 1 casa decimal
+  lcd.print("%");
 
-  delay(2000); // Aguarda 2 segundos antes de repetir a leitura
+  // Enviar dados para o monitor serial
+  Serial.print("Luminosidade: ");
+  if (ldrValue > LIGHT_THRESHOLD) {
+    Serial.println("Alta"); // Mostrar "Alta" se a leitura for maior que o limite
+  } else {
+    Serial.println("Baixa"); // Mostrar "Baixa" se a leitura for menor ou igual ao limite
+  }
+
+  Serial.print("Temperatura: ");
+  Serial.print(temperature);
+  Serial.print("C, Umidade: ");
+  Serial.print(humidity);
+  Serial.println("%");
+
+  // Lógica de acionamento e desligamento do LED
+  if (ldrValue <= LIGHT_THRESHOLD) {
+    digitalWrite(outputPin, HIGH); // Aciona o LED
+    Serial.println("LED ACESO");
+  } else {
+    digitalWrite(outputPin, LOW); // Desliga o LED
+    Serial.println("LED APAGADO");
+  }
+
+  delay(1000); // Aguardar 1 segundo antes de ler novamente
 }
