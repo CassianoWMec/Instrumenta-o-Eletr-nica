@@ -1,0 +1,55 @@
+#include <LiquidCrystal.h>
+
+// Inicializa o LCD no modo 4 bits com os pinos RS, E, D4, D5, D6, D7
+LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+
+// Definindo os pinos
+const int ldrPin = A0;
+const int tempPin = A1;
+const int umidadePin = A2;
+
+void setup() {
+  lcd.begin(16, 2); // Inicializa o display LCD com 16 colunas e 2 linhas
+  Serial.begin(9600);
+}
+
+void loop() {
+  // Leitura do Fotoresistor (LDR)
+  int valorLDR = analogRead(ldrPin);
+  float luminosidade = map(valorLDR, 0, 1023, 0, 100); // Converte para percentual
+
+  // Leitura do Sensor de Temperatura (LM35)
+  int valorTemp = analogRead(tempPin);
+  float temperatura = (valorTemp * 5.0 * 100.0) / 1023.0; // Converte para Celsius
+
+  // Leitura do Sensor de Umidade do Solo
+  int valorUmidade = analogRead(umidadePin);
+  float umidade = map(valorUmidade, 0, 1023, 0, 100); // Converte para percentual
+
+  // Exibindo no Serial Monitor
+  Serial.print("Luminosidade: ");
+  Serial.print(luminosidade);
+  Serial.println(" %");
+
+  Serial.print("Temperatura: ");
+  Serial.print(temperatura);
+  Serial.println(" C");
+
+  Serial.print("Umidade do Solo: ");
+  Serial.print(umidade);
+  Serial.println(" %");
+
+  // Exibindo no LCD
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Temp: ");
+  lcd.print(temperatura);
+  lcd.print(" C");
+
+  lcd.setCursor(0, 1);
+  lcd.print("Umid: ");
+  lcd.print(umidade);
+  lcd.print(" %");
+
+  delay(2000); // Aguarda 2 segundos antes de repetir a leitura
+}
