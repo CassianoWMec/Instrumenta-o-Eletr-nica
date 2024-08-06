@@ -1,0 +1,38 @@
+#include <LiquidCrystal.h>
+
+LiquidCrystal lcd_1(12, 11, 5, 4, 3, 2);
+
+int vezesAlimentado = 0;  // Variável para armazenar o número de vezes alimentado
+
+void setup() {
+  // Iniciando o display LCD
+  lcd_1.begin(16, 2);
+  
+  // Iniciando a comunicação serial
+  Serial.begin(9600);
+
+  // Mensagem inicial no display
+  lcd_1.print("Alimentacoes:");
+}
+
+void loop() {
+  // Verifica se há dados disponíveis na comunicação serial
+  if (Serial.available() > 0) {
+    // Ler a linha completa dos dados recebidos
+    String data = Serial.readStringUntil('\n');
+    
+    // Tenta converter a string recebida para um número
+    int contador = data.toInt();
+    
+    // Atualiza a variável vezesAlimentado com o valor recebido
+    vezesAlimentado = contador;
+    
+    // Atualiza o display LCD com o contador de vezes alimentado
+    lcd_1.setCursor(0, 1);
+    lcd_1.print("                ");  // Limpa a linha 1 para evitar resíduos de dados anteriores
+    lcd_1.setCursor(0, 1);
+    lcd_1.print(vezesAlimentado);
+  }
+  
+  delay(500);  // Pequeno atraso para garantir que a leitura não ocorra muito rapidamente
+}
